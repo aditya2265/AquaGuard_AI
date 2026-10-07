@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ region.name }} — AquaGuard AI{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center gap-3 mb-4">
+  <a href="{% url 'regions:list' %}" class="btn-aq btn-aq-ghost btn-aq-sm">
+    <i class="bi bi-arrow-left me-2"></i>Back
+  </a>
+  <div>
+    <div class="aq-page-title mb-0">{{ region.name }}</div>
+    <div style="font-size:13px;color:var(--text-muted);">{{ region.state }}, {{ region.country }}</div>
+  </div>
+  <div class="ms-auto">
+    <button class="btn-aq btn-aq-primary" id="run-prediction-btn"
+            onclick="runPrediction({{ region.pk }})">
+      <i class="bi bi-cpu me-2"></i>Run New Prediction
+    </button>
+  </div>
+</div>
+
+<!-- Metric Cards -->
+<div class="row g-3 mb-4">
+  <div class="col-sm-6 col-xl-3">
+    <div class="aq-metric-card">
+      <div class="aq-metric-icon blue"><i class="bi bi-droplet-half"></i></div>
+      <div class="aq-metric-value">
+        {% if latest_measurement %}{{ latest_measurement.reservoir_level|floatformat:1 }}%{% else %}—{% endif %}
+      </div>
+      <div class="aq-metric-label">Reservoir Level</div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="aq-metric-card">
+      <div class="aq-metric-icon cyan"><i class="bi bi-cloud-rain-fill"></i></div>
+      <div class="aq-metric-value">
+        {% if latest_measurement %}{{ latest_measurement.rainfall_mm|floatformat:1 }}{% else %}—{% endif %}
+      </div>
+      <div class="aq-metric-label">Rainfall (mm)</div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="aq-metric-card">
+      <div class="aq-metric-icon green"><i class="bi bi-water"></i></div>
+      <div class="aq-metric-value">
+        {% if latest_measurement %}{{ latest_measurement.water_consumption_mld|floatformat:1 }}{% else %}—{% endif %}
+      </div>
+      <div class="aq-metric-label">Consumption (MLD)</div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="aq-metric-card">
+      <div class="aq-metric-icon {% if latest_prediction.risk_level == 'CRITICAL' %}red{% elif latest_prediction.risk_level == 'HIGH' %}orange{% elif latest_prediction.risk_level == 'MODERATE' %}amber{% else %}green{% endif %}">
+        <i class="bi bi-shield-exclamation"></i>
+      </div>
+      <div class="aq-metric-value">
+        {% if latest_prediction %}{{ latest_prediction.risk_probability|floatformat:0 }}%{% else %}—{% endif %}
+      </div>
+      <div class="aq-metric-label">Risk Probability</div>
+      <div class="aq-metric-sub">
+        {% if latest_prediction %}
+          <span class="badge-risk badge-{{ latest_prediction.risk_level|lower }}">{{ latest_prediction.risk_level }}</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Charts Row -->
+<div class="row g-4 mb-4">
+  <div class="col-lg-8">
+    <div class="aq-card">
+      <div class="aq-card-header">
+        <h5 class="aq-card-title"><i class="bi bi-graph-up"></i> Historical Data (30 Days)</h5>
+      </div>
+      <div class="aq-chart-wrap" style="height:220px;">
+        <canvas id="historicalChart"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="aq-card h-100">
+      <div class="aq-card-header">
+        <h5 class="aq-card-title"><i class="bi bi-info-circle"></i> Region Info</h5>
+      </div>
+      <div style="font-size:13px;">
+        <div class="d-flex justify-content-between py-2" style="border-bottom:1px solid var(--border-color);">
+          <span style="color:var(--text-muted);">Population</span>
+          <span style="font-weight:600;">{{ region.population|default:"—" }}</span>
+        </div>
+        <div class="d-flex justify-content-between py-2" style="border-bottom:1px solid var(--border-color);">
+          <span style="color:var(--text-muted);">Area</span>
+          <span style="font-weight:600;">{{ region.area_sq_km|floatformat:0 }} km²</span>
+        </div>
+        <div class="d-flex justify-content-between py-2" style="border-bottom:1px solid var(--border-color);">
+          <span style="color:var(--text-muted);">Coordinates</span>
+          <span style="font-weight:600;font-size:12px;">{{ region.latitude|floatformat:2 }}, {{ region.longitude|floatformat:2 }}</span>
+        </div>
+        <div class="d-flex justify-content-between py-2">
+          <span style="color:var(--text-muted);">Status</span>
+          <span class="badge-risk {% if region.is_active %}badge-low{% else %}badge-critical{% endif %}">
+            {% if region.is_active %}Active{% else %}Inactive{% endif %}
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Predictions + Recommendations + Alerts -->
+<div class="row g-4">
+  <!-- Latest Predictions -->
+  <div class="col-lg-5">
+    <div class="aq-card">
+      <div class="aq-card-header">
+        <h5 class="aq-card-title"><i class="bi bi-cpu-fill"></i> Latest Predictions</h5>
+        <a href="{% url 'predictions:list' %}?region={{ region.pk }}" style="font-size:12px;color:var(--accent-blue);">All →</a>
+      </div>
+      {% if predictions %}
+        <table class="aq-table">
+          <thead><tr><th>Horizon</th><th>Risk</th><th>Probability</th><th>Date</th></tr></thead>
+          <tbody>
+            {% for p in predictions %}
+              <tr class="row-{{ p.risk_level|lower }}" onclick="window.location='{% url 'predictions:detail' p.pk %}'" style="cursor:pointer;">
+                <td>{{ p.horizon_days }}d</td>
+                <td><span class="badge-risk badge-{{ p.risk_level|lower }}"><span class="dot"></span>{{ p.risk_level }}</span></td>
+                <td>{{ p.risk_probability|floatformat:0 }}%</td>
+                <td style="font-size:11px;color:var(--text-muted);">{{ p.prediction_date|date:"M j" }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <div class="aq-empty"><i class="bi bi-cpu"></i><p>No predictions yet.</p></div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Recommendations -->
+  <div class="col-lg-4">
+    <div class="aq-card">
+      <div class="aq-card-header">
+        <h5 class="aq-card-title"><i class="bi bi-lightbulb-fill"></i> Recommendations</h5>
+        <a href="{% url 'recommendations:list' %}" style="font-size:12px;color:var(--accent-blue);">All →</a>
+      </div>
+      {% for rec in recommendations %}
+        <div class="aq-alert-item">
+          <div class="aq-alert-body">
+            <div class="d-flex align-items-center gap-2 mb-1">
+              <span class="badge-risk badge-{% if rec.priority == 'CRITICAL' %}critical{% elif rec.priority == 'HIGH' %}high{% elif rec.priority == 'MEDIUM' %}moderate{% else %}low{% endif %}">
+                {{ rec.priority }}
+              </span>
+            </div>
+            <div class="aq-alert-title">{{ rec.title }}</div>
+            <div class="aq-alert-meta">{{ rec.get_category_display }}</div>
+          </div>
+        </div>
+      {% empty %}
+        <div class="aq-empty" style="padding:20px;"><i class="bi bi-lightbulb"></i><p>No recommendations.</p></div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Recent Alerts -->
+  <div class="col-lg-3">
+    <div class="aq-card">
+      <div class="aq-card-header">
+        <h5 class="aq-card-title"><i class="bi bi-bell-fill"></i> Alerts</h5>
+        <a href="{% url 'alerts:list' %}" style="font-size:12px;color:var(--accent-blue);">All →</a>
+      </div>
+      {% for alert in alerts %}
+        <div class="aq-alert-item">
+          <div class="aq-alert-icon {{ alert.severity|lower }}">
+            <i class="bi bi-exclamation-circle-fill"></i>
+          </div>
+          <div class="aq-alert-body">
+            <div class="aq-alert-title">{{ alert.title|truncatechars:40 }}</div>
+            <div class="aq-alert-meta">{{ alert.created_at|timesince }} ago</div>
+          </div>
+        </div>
+      {% empty %}
+        <div class="aq-empty" style="padding:20px;"><i class="bi bi-bell-slash"></i><p>No alerts.</p></div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/prediction.js' %}"></script>
+<script>
+  const histDates     = {{ hist_dates|safe }};
+  const histReservoir = {{ hist_reservoir|safe }};
+  const histRainfall  = {{ hist_rainfall|safe }};
+  initHistoricalChart(histDates, histReservoir, histRainfall);
+</script>
+{% endblock %}

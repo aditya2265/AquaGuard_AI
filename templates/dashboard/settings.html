@@ -1,0 +1,176 @@
+{% extends 'base.html' %}
+
+{% block title %}Settings — AquaGuard AI{% endblock %}
+
+{% block content %}
+<div class="aq-page-header">
+  <div>
+    <h1 class="aq-page-title"><i class="bi bi-gear-fill me-2"></i>Settings</h1>
+    <p class="aq-page-subtitle">System configuration, integration status, and data management</p>
+  </div>
+</div>
+
+<div class="row g-4">
+
+  <!-- ====== ADMIN ACCESS ====== -->
+  <div class="col-12 col-xl-6">
+    <div class="aq-card h-100">
+      <div class="aq-card-header">
+        <h5 class="mb-0"><i class="bi bi-sliders me-2"></i>Administration</h5>
+      </div>
+      <div class="aq-card-body">
+        <p class="text-muted small mb-3">
+          AquaGuard AI is open to the public. The Django admin panel is the only
+          authentication-protected area — use it to manage data and users.
+        </p>
+        <a href="/admin/" class="btn btn-sm btn-outline-primary" target="_blank">
+          <i class="bi bi-box-arrow-up-right me-1"></i>Open Admin Panel
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== IBM INTEGRATION ====== -->
+  <div class="col-12 col-xl-6">
+    <div class="aq-card h-100">
+      <div class="aq-card-header">
+        <h5 class="mb-0"><i class="bi bi-cpu me-2"></i>IBM watsonx Integration</h5>
+      </div>
+      <div class="aq-card-body">
+
+        {% if ibm_active %}
+        <div class="alert alert-success d-flex align-items-center py-2 mb-3" role="alert">
+          <i class="bi bi-check-circle-fill me-2"></i>
+          <strong>IBM watsonx integration: Active</strong>
+        </div>
+        {% else %}
+        <div class="alert alert-secondary d-flex align-items-center py-2 mb-3" role="alert">
+          <i class="bi bi-dash-circle me-2"></i>
+          <strong>IBM watsonx integration: Not configured</strong>
+        </div>
+        {% endif %}
+
+        <table class="table table-sm table-borderless mb-3">
+          <tbody>
+            <tr>
+              <td class="fw-semibold text-muted" style="width:55%;">IBM_API_KEY</td>
+              <td>
+                {% if ibm_api_key_set %}
+                  <span class="text-success"><i class="bi bi-check-circle-fill me-1"></i>Configured</span>
+                {% else %}
+                  <span class="text-secondary"><i class="bi bi-dash-circle me-1"></i>Not set</span>
+                {% endif %}
+              </td>
+            </tr>
+            <tr>
+              <td class="fw-semibold text-muted">IBM_PROJECT_ID</td>
+              <td>
+                {% if ibm_project_id_set %}
+                  <span class="text-success"><i class="bi bi-check-circle-fill me-1"></i>Configured</span>
+                {% else %}
+                  <span class="text-secondary"><i class="bi bi-dash-circle me-1"></i>Not set</span>
+                {% endif %}
+              </td>
+            </tr>
+            <tr>
+              <td class="fw-semibold text-muted">IBM_URL</td>
+              <td>
+                {% if ibm_url_set %}
+                  <span class="text-success"><i class="bi bi-check-circle-fill me-1"></i>Configured</span>
+                {% else %}
+                  <span class="text-secondary"><i class="bi bi-dash-circle me-1"></i>Not set</span>
+                {% endif %}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="alert alert-light border py-2 small mb-0">
+          <i class="bi bi-info-circle me-1"></i>
+          When IBM credentials are not set, AquaGuard AI uses its built-in rule-based AI engine.
+          To enable IBM watsonx, set the environment variables in your <code>.env</code> file.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== SYSTEM INFO ====== -->
+  <div class="col-12 col-xl-6">
+    <div class="aq-card h-100">
+      <div class="aq-card-header">
+        <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>System Information</h5>
+      </div>
+      <div class="aq-card-body">
+        <table class="table table-sm table-borderless mb-0">
+          <tbody>
+            <tr>
+              <td class="fw-semibold text-muted" style="width:55%;">Regions Monitored</td>
+              <td><span class="badge bg-primary">{{ total_regions }}</span></td>
+            </tr>
+            <tr>
+              <td class="fw-semibold text-muted">Total Predictions</td>
+              <td><span class="badge bg-secondary">{{ total_predictions }}</span></td>
+            </tr>
+            <tr>
+              <td class="fw-semibold text-muted">Water Measurements</td>
+              <td><span class="badge bg-secondary">{{ total_measurements }}</span></td>
+            </tr>
+            <tr>
+              <td class="fw-semibold text-muted">Demo Data Loaded</td>
+              <td>
+                {% if has_demo_data %}
+                  <span class="text-success"><i class="bi bi-check-circle-fill me-1"></i>Yes</span>
+                {% else %}
+                  <span class="text-muted"><i class="bi bi-dash-circle me-1"></i>No</span>
+                {% endif %}
+              </td>
+            </tr>
+            <tr>
+              <td class="fw-semibold text-muted">ML Model Status</td>
+              <td>
+                {% if ml_model_trained %}
+                  <span class="text-success"><i class="bi bi-check-circle-fill me-1"></i>Trained</span>
+                {% else %}
+                  <span class="text-warning"><i class="bi bi-exclamation-circle-fill me-1"></i>Using rule-based fallback</span>
+                {% endif %}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== DATA MANAGEMENT ====== -->
+  <div class="col-12 col-xl-6">
+    <div class="aq-card h-100">
+      <div class="aq-card-header">
+        <h5 class="mb-0"><i class="bi bi-database me-2"></i>Data Management</h5>
+      </div>
+      <div class="aq-card-body">
+        <div class="mb-4">
+          <h6 class="fw-semibold">Upload Water Data (CSV)</h6>
+          <p class="small text-muted mb-2">Import historical measurements from a CSV file.</p>
+          <a href="{% url 'water_data:import' %}" class="btn btn-sm btn-primary">
+            <i class="bi bi-upload me-1"></i>Import CSV
+          </a>
+        </div>
+        <hr>
+        <div class="mb-4">
+          <h6 class="fw-semibold">Seed Demo Data</h6>
+          <p class="small text-muted mb-2">Populate the database with realistic synthetic data for all regions.</p>
+          <code class="d-block bg-light border rounded px-3 py-2 small">python manage.py seed_demo_data</code>
+          <code class="d-block bg-light border rounded px-3 py-2 small mt-1">python manage.py seed_demo_data --reset</code>
+        </div>
+        <hr>
+        <div class="mb-0">
+          <h6 class="fw-semibold">Train ML Models</h6>
+          <p class="small text-muted mb-2">Train the risk classifier and shortage predictor on available data.</p>
+          <code class="d-block bg-light border rounded px-3 py-2 small">python manage.py train_models</code>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

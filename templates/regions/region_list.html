@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Regions — AquaGuard AI{% endblock %}
+
+{% block content %}
+<div class="aq-page-title">Regional Overview</div>
+<div class="aq-page-subtitle">All monitored water regions with latest risk assessment.</div>
+
+<!-- Summary Cards -->
+<div class="row g-3 mb-4">
+  <div class="col-sm-4">
+    <div class="aq-metric-card">
+      <div class="aq-metric-icon blue"><i class="bi bi-geo-alt-fill"></i></div>
+      <div class="aq-metric-value">{{ total_regions }}</div>
+      <div class="aq-metric-label">Total Regions</div>
+    </div>
+  </div>
+  <div class="col-sm-4">
+    <div class="aq-metric-card">
+      <div class="aq-metric-icon amber"><i class="bi bi-shield-exclamation"></i></div>
+      <div class="aq-metric-value">{% if avg_risk %}{{ avg_risk|floatformat:0 }}%{% else %}—{% endif %}</div>
+      <div class="aq-metric-label">Avg Risk Probability</div>
+    </div>
+  </div>
+  <div class="col-sm-4">
+    <div class="aq-metric-card">
+      <div class="aq-metric-icon red"><i class="bi bi-exclamation-triangle-fill"></i></div>
+      <div class="aq-metric-value">{{ highest_risk_region|default:"—" }}</div>
+      <div class="aq-metric-label">Highest Risk Region</div>
+    </div>
+  </div>
+</div>
+
+<!-- Filter Bar -->
+<div class="aq-filter-bar mb-3">
+  <span class="label">Filter:</span>
+  <form method="get" class="d-flex gap-2 align-items-center flex-wrap" style="margin:0;">
+    <input type="text" name="search" value="{{ request.GET.search }}"
+           placeholder="Search region name..." class="aq-form-control" style="max-width:200px;">
+    <select name="risk" class="aq-form-control" style="max-width:160px;">
+      <option value="">All Risk Levels</option>
+      <option value="CRITICAL" {% if request.GET.risk == 'CRITICAL' %}selected{% endif %}>Critical</option>
+      <option value="HIGH"     {% if request.GET.risk == 'HIGH' %}selected{% endif %}>High</option>
+      <option value="MODERATE" {% if request.GET.risk == 'MODERATE' %}selected{% endif %}>Moderate</option>
+      <option value="LOW"      {% if request.GET.risk == 'LOW' %}selected{% endif %}>Low</option>
+    </select>
+    <button type="submit" class="btn-aq btn-aq-primary btn-aq-sm">Apply</button>
+    {% if request.GET.search or request.GET.risk %}
+      <a href="{% url 'regions:list' %}" class="btn-aq btn-aq-ghost btn-aq-sm">Clear</a>
+    {% endif %}
+  </form>
+</div>
+
+<!-- Table -->
+<div class="aq-card">
+  <div class="table-responsive">
+    <table class="aq-table">
+      <thead>
+        <tr>
+          <th>Region</th>
+          <th>State</th>
+          <th>Risk Level</th>
+          <th>Reservoir %</th>
+          <th>Rainfall (mm)</th>
+          <th>Consumption (MLD)</th>
+          <th>Risk Prob.</th>
+          <th>Last Updated</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in regions_data %}
+          <tr class="{% if item.prediction %}row-{{ item.prediction.risk_level|lower }}{% endif %}">
+            <td>
+              <div style="font-weight:600;">{{ item.region.name }}</div>
+              <div style="font-size:11px;color:var(--text-muted);">Pop: {{ item.region.population|default:"—" }}</div>
+            </td>
+            <td class="muted">{{ item.region.state }}</td>
+            <td>
+              {% if item.prediction %}
+                <span class="badge-risk badge-{{ item.prediction.risk_level|lower }}">
+                  <span class="dot"></span>{{ item.prediction.risk_level }}
+                </span>
+              {% else %}
+                <span style="color:var(--text-muted);font-size:12px;">N/A</span>
+              {% endif %}
+            </td>
+            <td>{% if item.measurement %}{{ item.measurement.reservoir_level|floatformat:1 }}%{% else %}—{% endif %}</td>
+            <td>{% if item.measurement %}{{ item.measurement.rainfall_mm|floatformat:1 }}{% else %}—{% endif %}</td>
+            <td>{% if item.measurement %}{{ item.measurement.water_consumption_mld|floatformat:1 }}{% else %}—{% endif %}</td>
+            <td>
+              {% if item.prediction %}
+                <strong>{{ item.prediction.risk_probability|floatformat:0 }}%</strong>
+              {% else %}—{% endif %}
+            </td>
+            <td class="muted" style="font-size:12px;">
+              {% if item.measurement %}{{ item.measurement.date|date:"M j, Y" }}{% else %}—{% endif %}
+            </td>
+            <td>
+              <a href="{% url 'regions:detail' item.region.pk %}" class="btn-aq btn-aq-ghost btn-aq-sm">
+                <i class="bi bi-eye me-1"></i>View
+              </a>
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="9"><div class="aq-empty"><i class="bi bi-geo-alt"></i><p>No regions found.</p></div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

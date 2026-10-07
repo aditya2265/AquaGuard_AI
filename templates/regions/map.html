@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Water Risk Map — AquaGuard AI{% endblock %}
+
+{% block extra_css %}
+<style>
+  #aq-map { height: 500px; }
+  .map-region-card {
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: var(--transition);
+    background: var(--bg-input);
+  }
+  .map-region-card:hover, .map-region-card.active {
+    border-color: var(--accent-blue);
+    background: var(--bg-hover);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="aq-page-title">Water Risk Map</div>
+<div class="aq-page-subtitle">Live risk visualization across all monitored regions.</div>
+
+<div class="row g-3">
+
+  <!-- Map -->
+  <div class="col-lg-9">
+    <div class="aq-card p-0" style="overflow:hidden;">
+      <div id="aq-map"></div>
+    </div>
+  </div>
+
+  <!-- Side panel -->
+  <div class="col-lg-3">
+    <div class="aq-card h-100" style="overflow-y:auto;max-height:540px;">
+      <div class="aq-card-header mb-2">
+        <h5 class="aq-card-title" style="font-size:13px;"><i class="bi bi-list-ul"></i> Regions</h5>
+        <span style="font-size:11px;color:var(--text-muted);">{{ regions_data|length }} monitored</span>
+      </div>
+
+      {% for item in regions_data %}
+        <div class="map-region-card" data-region-id="{{ item.region.pk }}">
+          <div style="font-weight:600;font-size:13px;color:var(--text-heading);">{{ item.region.name }}</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px;">{{ item.region.state }}</div>
+          <div class="d-flex align-items-center gap-2">
+            {% if item.prediction %}
+              <span class="badge-risk badge-{{ item.prediction.risk_level|lower }}">
+                <span class="dot"></span>{{ item.prediction.risk_level }}
+              </span>
+              <span style="font-size:12px;color:var(--text-muted);">
+                {{ item.prediction.risk_probability|floatformat:0 }}%
+              </span>
+            {% else %}
+              <span style="font-size:12px;color:var(--text-muted);">No data</span>
+            {% endif %}
+          </div>
+        </div>
+      {% empty %}
+        <div class="aq-empty"><i class="bi bi-geo"></i><p>No regions found.</p></div>
+      {% endfor %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/map.js' %}"></script>
+<script>
+  const regionsMapData = {{ regions_geo_json|safe }};
+  initRiskMap(regionsMapData);
+</script>
+{% endblock %}

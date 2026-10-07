@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block title %}My Profile — AquaGuard AI{% endblock %}
+
+{% block content %}
+<div class="aq-page-title">My Profile</div>
+<div class="aq-page-subtitle">Manage your account information and preferences.</div>
+
+<div class="row g-4">
+
+  <!-- Profile Info -->
+  <div class="col-lg-4">
+    <div class="aq-card text-center">
+      <div class="aq-avatar mx-auto mb-3"
+           style="width:64px;height:64px;font-size:26px;background:linear-gradient(135deg,var(--accent-blue),var(--accent-cyan));">
+        {% if request.user.first_name %}{{ request.user.first_name.0|upper }}{% else %}{{ request.user.username.0|upper }}{% endif %}
+      </div>
+      <h5 style="color:var(--text-heading);font-size:16px;margin-bottom:4px;">
+        {{ request.user.get_full_name|default:request.user.username }}
+      </h5>
+      <p style="color:var(--text-muted);font-size:13px;margin-bottom:16px;">@{{ request.user.username }}</p>
+
+      {% if profile %}
+        <div class="d-flex flex-column gap-2 text-start" style="font-size:13px;">
+          <div class="d-flex justify-content-between" style="border-bottom:1px solid var(--border-color);padding-bottom:8px;">
+            <span style="color:var(--text-muted);">Role</span>
+            <span style="color:var(--text-heading);font-weight:600;">{{ profile.get_role_display }}</span>
+          </div>
+          <div class="d-flex justify-content-between" style="border-bottom:1px solid var(--border-color);padding-bottom:8px;">
+            <span style="color:var(--text-muted);">Email</span>
+            <span style="color:var(--text-heading);">{{ request.user.email|default:"—" }}</span>
+          </div>
+          {% if profile.organization %}
+          <div class="d-flex justify-content-between" style="border-bottom:1px solid var(--border-color);padding-bottom:8px;">
+            <span style="color:var(--text-muted);">Organization</span>
+            <span style="color:var(--text-heading);">{{ profile.organization }}</span>
+          </div>
+          {% endif %}
+          {% if profile.phone %}
+          <div class="d-flex justify-content-between">
+            <span style="color:var(--text-muted);">Phone</span>
+            <span style="color:var(--text-heading);">{{ profile.phone }}</span>
+          </div>
+          {% endif %}
+        </div>
+      {% endif %}
+
+      <hr style="border-color:var(--border-color);margin:16px 0;">
+      <a href="/accounts/password-change/" class="btn-aq btn-aq-ghost btn-aq-sm w-100" style="justify-content:center;">
+        <i class="bi bi-key me-2"></i>Change Password
+      </a>
+    </div>
+  </div>
+
+  <!-- Edit Profile Form -->
+  <div class="col-lg-8">
+    <div class="aq-card">
+      <div class="aq-card-header">
+        <h5 class="aq-card-title"><i class="bi bi-pencil-square"></i> Edit Profile</h5>
+      </div>
+
+      <form method="post" novalidate>
+        {% csrf_token %}
+
+        {% if profile_form.non_field_errors %}
+          <div class="mb-3 p-3"
+               style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:8px;color:var(--color-critical);font-size:13px;">
+            {% for error in profile_form.non_field_errors %}{{ error }}{% endfor %}
+          </div>
+        {% endif %}
+
+        <div class="row g-3">
+          <div class="col-md-6 aq-form-group">
+            <label class="aq-label">Role</label>
+            {{ profile_form.role }}
+            {% if profile_form.role.errors %}
+              <div class="aq-invalid-feedback">{{ profile_form.role.errors|join:", " }}</div>
+            {% endif %}
+          </div>
+          <div class="col-md-6 aq-form-group">
+            <label class="aq-label">Phone</label>
+            {{ profile_form.phone }}
+          </div>
+          <div class="col-12 aq-form-group">
+            <label class="aq-label">Organization</label>
+            {{ profile_form.organization }}
+          </div>
+          <div class="col-12 aq-form-group">
+            <label class="aq-label">Bio</label>
+            {{ profile_form.bio }}
+          </div>
+        </div>
+
+        <div class="d-flex gap-2 mt-2">
+          <button type="submit" class="btn-aq btn-aq-primary">
+            <i class="bi bi-check-lg me-2"></i>Save Changes
+          </button>
+          <a href="{% url 'dashboard:index' %}" class="btn-aq btn-aq-ghost">Cancel</a>
+        </div>
+      </form>
+    </div>
+
+    {% if profile and profile.bio %}
+    <div class="aq-card mt-4">
+      <div class="aq-card-header">
+        <h5 class="aq-card-title"><i class="bi bi-person-lines-fill"></i> Bio</h5>
+      </div>
+      <p style="font-size:14px;color:var(--text-muted);margin:0;line-height:1.7;">{{ profile.bio }}</p>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

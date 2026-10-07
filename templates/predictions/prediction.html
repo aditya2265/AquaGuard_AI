@@ -1,0 +1,288 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Predictions — AquaGuard AI{% endblock %}
+
+{% block content %}
+<div class="aq-page-title">AI Predictions</div>
+<div class="aq-page-subtitle">Water shortage risk predictions powered by machine learning.</div>
+
+<!-- ── Region Selector + Controls ── -->
+<div class="aq-card mb-4">
+  <div class="row align-items-end g-3">
+    <div class="col-md-5">
+      <label class="aq-label">Select Region</label>
+      <select class="aq-form-control" id="region-selector">
+        <option value="">— Select a region —</option>
+        {% for region in regions %}
+          <option value="{{ region.pk }}"
+            {% if selected_region and selected_region.pk == region.pk %}selected{% endif %}>
+            {{ region.name }}, {{ region.state }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-3 d-flex gap-2">
+      <a href="?region={{ selected_region.pk }}&horizon=7"
+         class="btn-aq {% if selected_horizon == 7 %}btn-aq-primary{% else %}btn-aq-ghost{% endif %} btn-aq-sm">7d</a>
+      <a href="?region={{ selected_region.pk }}&horizon=14"
+         class="btn-aq {% if selected_horizon == 14 %}btn-aq-primary{% else %}btn-aq-ghost{% endif %} btn-aq-sm">14d</a>
+      <a href="?region={{ selected_region.pk }}&horizon=30"
+         class="btn-aq {% if selected_horizon == 30 %}btn-aq-primary{% else %}btn-aq-ghost{% endif %} btn-aq-sm">30d</a>
+    </div>
+    <div class="col-md-auto ms-md-auto">
+      {% if selected_region %}
+        <button id="run-prediction-btn" class="btn-aq btn-aq-primary"
+                onclick="runPrediction({{ selected_region.pk }})">
+          <i class="bi bi-cpu me-2"></i>Run New Prediction
+        </button>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{% if selected_region %}
+
+<div class="row g-4 mb-4">
+
+  <!-- LEFT: Charts -->
+  <div class="col-lg-8">
+
+    <!-- Risk Probability Chart -->
+    <div class="aq-card mb-4">
+      <div class="aq-card-header">
+        <h5 class="aq-card-title"><i class="bi bi-graph-up-arrow"></i> Risk Probability by Horizon</h5>
+      </div>
+      <div class="aq-chart-wrap" style="height:220px;">
+        <canvas id="predictionChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Historical Trend -->
+    <div class="aq-card">
+      <div class="aq-card-header">
+        <h5 class="aq-card-title"><i class="bi bi-clock-history"></i> Historical Trend (60 Days)</h5>
+        <span style="font-size:12px;color:var(--text-muted);">Reservoir Level &amp; Rainfall</span>
+      </div>
+      <div class="aq-chart-wrap" style="height:200px;">
+        <canvas id="historicalChart"></canvas>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- RIGHT: Risk Card + Metrics -->
+  <div class="col-lg-4">
+
+    <!-- Current Risk -->
+    {% if latest_prediction %}
+      <div class="aq-card mb-3"
+           style="border-color:{% if latest_prediction.risk_level == 'CRITICAL' %}var(--color-critical){% elif latest_prediction.risk_level == 'HIGH' %}var(--color-high){% elif latest_prediction.risk_level == 'MODERATE' %}var(--color-moderate){% else %}var(--color-low){% endif %};">
+        <div class="text-center">
+          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-muted);margin-bottom:12px;">
+            Current Risk Assessment
+          </div>
+          <div style="font-size:52px;font-weight:800;color:var(--text-heading);line-height:1;">
+            {{ latest_prediction.risk_probability|floatformat:0 }}<span style="font-size:24px;">%</span>
+          </div>
+          <div style="margin:12px 0;">
+            <span class="badge-risk badge-{{ latest_prediction.risk_level|lower }}" style="font-size:13px;padding:5px 16px;">
+              <span class="dot"></span>{{ latest_prediction.risk_level }}
+            </span>
+          </div>
+          {% if latest_prediction.expected_shortage_start %}
+            <div style="font-size:12px;color:var(--text-muted);">
+              Expected shortage: <strong style="color:var(--color-high);">{{ latest_prediction.expected_shortage_start }}</strong>
+            </div>
+          {% endif %}
+          <div style="font-size:11px;color:var(--text-muted);margin-top:8px;">
+            {{ latest_prediction.horizon_days }}-day horizon &bull; {{ latest_prediction.prediction_date|date:"M j, Y" }}
+          </div>
+        </div>
+      </div>
+    {% endif %}
+
+    <!-- Mini Metrics -->
+    {% if latest_measurement %}
+      <div class="aq-card mb-3">
+        <div class="aq-card-title mb-3"><i class="bi bi-droplet"></i> Current Measurements</div>
+        <div class="row g-2">
+          <div class="col-6">
+            <div style="background:rgba(59,130,246,0.08);border-radius:8px;padding:12px;text-align:center;">
+              <div style="font-size:20px;font-weight:700;color:var(--accent-blue);">{{ latest_measurement.reservoir_level|floatformat:1 }}%</div>
+              <div style="font-size:11px;color:var(--text-muted);">Reservoir</div>
+            </div>
+          </div>
+          <div class="col-6">
+            <div style="background:rgba(6,182,212,0.08);border-radius:8px;padding:12px;text-align:center;">
+              <div style="font-size:20px;font-weight:700;color:var(--accent-cyan);">{{ latest_measurement.rainfall_mm|floatformat:1 }}</div>
+              <div style="font-size:11px;color:var(--text-muted);">Rainfall (mm)</div>
+            </div>
+          </div>
+          <div class="col-12">
+            <div style="background:rgba(34,197,94,0.08);border-radius:8px;padding:12px;text-align:center;">
+              <div style="font-size:20px;font-weight:700;color:var(--color-low);">{{ latest_measurement.water_consumption_mld|floatformat:1 }}</div>
+              <div style="font-size:11px;color:var(--text-muted);">Consumption (MLD)</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    {% endif %}
+
+    <!-- View AI explanation link -->
+    {% if latest_prediction %}
+      <a href="{% url 'predictions:detail' latest_prediction.pk %}" class="btn-aq btn-aq-outline w-100" style="justify-content:center;">
+        <i class="bi bi-robot me-2"></i>AI Explanation
+      </a>
+    {% endif %}
+
+  </div>
+</div>
+
+<!-- ── AI Explanation Panel ── -->
+{% if risk_assessment %}
+<div class="aq-card mb-4">
+  <div class="aq-card-header">
+    <h5 class="aq-card-title"><i class="bi bi-robot"></i> Why is the risk {{ latest_prediction.risk_level|lower }}?</h5>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-lg-6">
+      <!-- Factor bars -->
+      <div class="aq-factor-bar">
+        <div class="aq-factor-label">
+          <span><i class="bi bi-cloud-rain me-2" style="color:var(--accent-cyan);"></i>Rainfall Deviation</span>
+          <span class="val">{{ risk_assessment.rainfall_factor|floatformat:1 }}</span>
+        </div>
+        <div class="aq-progress">
+          <div class="aq-progress-bar {% if risk_assessment.rainfall_factor > 50 %}critical{% elif risk_assessment.rainfall_factor > 30 %}high{% elif risk_assessment.rainfall_factor > 15 %}moderate{% else %}low{% endif %}"
+               style="width:{{ risk_assessment.rainfall_factor|floatformat:0 }}%;"></div>
+        </div>
+      </div>
+      <div class="aq-factor-bar">
+        <div class="aq-factor-label">
+          <span><i class="bi bi-droplet-half me-2" style="color:var(--accent-blue);"></i>Reservoir Level</span>
+          <span class="val">{{ risk_assessment.reservoir_factor|floatformat:1 }}</span>
+        </div>
+        <div class="aq-progress">
+          <div class="aq-progress-bar blue" style="width:{{ risk_assessment.reservoir_factor|floatformat:0 }}%;"></div>
+        </div>
+      </div>
+      <div class="aq-factor-bar">
+        <div class="aq-factor-label">
+          <span><i class="bi bi-thermometer me-2" style="color:var(--color-high);"></i>Temperature Anomaly</span>
+          <span class="val">{{ risk_assessment.temperature_factor|floatformat:1 }}</span>
+        </div>
+        <div class="aq-progress">
+          <div class="aq-progress-bar high" style="width:{{ risk_assessment.temperature_factor|floatformat:0 }}%;"></div>
+        </div>
+      </div>
+      <div class="aq-factor-bar">
+        <div class="aq-factor-label">
+          <span><i class="bi bi-graph-up me-2" style="color:var(--color-moderate);"></i>Consumption Growth</span>
+          <span class="val">{{ risk_assessment.consumption_factor|floatformat:1 }}</span>
+        </div>
+        <div class="aq-progress">
+          <div class="aq-progress-bar moderate" style="width:{{ risk_assessment.consumption_factor|floatformat:0 }}%;"></div>
+        </div>
+      </div>
+      <div class="aq-factor-bar">
+        <div class="aq-factor-label">
+          <span><i class="bi bi-people me-2" style="color:var(--text-muted);"></i>Population Demand</span>
+          <span class="val">{{ risk_assessment.demand_factor|floatformat:1 }}</span>
+        </div>
+        <div class="aq-progress">
+          <div class="aq-progress-bar cyan" style="width:{{ risk_assessment.demand_factor|floatformat:0 }}%;"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-6">
+      <div style="background:rgba(255,255,255,0.03);border-radius:8px;padding:20px;height:100%;">
+        <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);margin-bottom:10px;">
+          <i class="bi bi-chat-text me-2"></i>AI Explanation
+        </div>
+        <p style="font-size:14px;color:var(--text-primary);line-height:1.7;margin:0;">
+          {{ risk_assessment.explanation_text|default:"No explanation available for this assessment." }}
+        </p>
+        <div style="margin-top:16px;padding:10px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:6px;font-size:12px;color:var(--color-moderate);">
+          <i class="bi bi-info-circle me-2"></i>
+          This is an AI/ML estimate. Please verify with official water authority data.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- ── All Predictions Table ── -->
+{% if all_predictions %}
+<div class="aq-card">
+  <div class="aq-card-header">
+    <h5 class="aq-card-title"><i class="bi bi-table"></i> All Predictions — {{ selected_region.name }}</h5>
+  </div>
+  <div class="table-responsive">
+    <table class="aq-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Horizon</th>
+          <th>Risk Level</th>
+          <th>Probability</th>
+          <th>Predicted Reservoir</th>
+          <th>Expected Shortage</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in all_predictions %}
+          <tr class="row-{{ p.risk_level|lower }}">
+            <td>{{ p.prediction_date|date:"M j, Y H:i" }}</td>
+            <td>{{ p.horizon_days }} days</td>
+            <td><span class="badge-risk badge-{{ p.risk_level|lower }}"><span class="dot"></span>{{ p.risk_level }}</span></td>
+            <td>{{ p.risk_probability|floatformat:1 }}%</td>
+            <td>{{ p.predicted_reservoir_level|floatformat:1 }}%</td>
+            <td>{{ p.expected_shortage_start|default:"—" }}</td>
+            <td>
+              <a href="{% url 'predictions:detail' p.pk %}" class="btn-aq btn-aq-ghost btn-aq-sm">
+                <i class="bi bi-eye"></i>
+              </a>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% else %}
+<!-- No region selected -->
+<div class="aq-card">
+  <div class="aq-empty" style="padding:64px;">
+    <i class="bi bi-cpu"></i>
+    <p style="font-size:16px;font-weight:600;color:var(--text-primary);margin-bottom:8px;">Select a Region to Begin</p>
+    <p>Choose a region above to view AI predictions and risk analysis.</p>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/prediction.js' %}"></script>
+{% if selected_region %}
+<script>
+  // Prediction chart
+  const predHorizons = {{ pred_horizons|safe }};
+  const predProbs    = {{ pred_probabilities|safe }};
+  initPredictionChart(predHorizons, predProbs);
+
+  // Historical chart
+  const histDates     = {{ hist_dates|safe }};
+  const histReservoir = {{ hist_reservoir|safe }};
+  const histRainfall  = {{ hist_rainfall|safe }};
+  initHistoricalChart(histDates, histReservoir, histRainfall);
+</script>
+{% endif %}
+{% endblock %}

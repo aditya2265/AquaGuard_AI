@@ -1,0 +1,266 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Dashboard — AquaGuard AI{% endblock %}
+
+{% block extra_css %}
+<style>
+  .dashboard-map { height: 350px; border-radius: var(--radius); overflow: hidden; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="aq-page-title">Dashboard</div>
+<div class="aq-page-subtitle">Water risk overview across all monitored regions.</div>
+
+<!-- ── TOP METRIC CARDS ── -->
+<div class="row g-3 mb-4">
+
+  <!-- Global Risk Score -->
+  <div class="col-sm-6 col-xl-3">
+    <div class="aq-metric-card">
+      <div class="aq-metric-icon blue"><i class="bi bi-shield-exclamation"></i></div>
+      <div class="aq-metric-value">
+        {% if avg_risk_probability %}{{ avg_risk_probability|floatformat:0 }}%{% else %}—{% endif %}
+      </div>
+      <div class="aq-metric-label">Global Risk Score</div>
+      <div class="aq-metric-sub">
+        {% if dominant_risk_level %}
+          <span class="badge-risk badge-{{ dominant_risk_level|lower }}">{{ dominant_risk_level }}</span>
+        {% else %}
+          <span style="color:var(--text-muted);">No predictions</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Active Alerts -->
+  <div class="col-sm-6 col-xl-3">
+    <div class="aq-metric-card">
+      <div class="aq-metric-icon red"><i class="bi bi-bell-fill"></i></div>
+      <div class="aq-metric-value">{{ unread_alert_count }}</div>
+      <div class="aq-metric-label">Unread Alerts</div>
+      <div class="aq-metric-sub">
+        {{ critical_count }} critical &nbsp;&bull;&nbsp;
+        <a href="{% url 'alerts:list' %}" style="color:var(--accent-blue);">View all</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Regions -->
+  <div class="col-sm-6 col-xl-3">
+    <div class="aq-metric-card">
+      <div class="aq-metric-icon cyan"><i class="bi bi-geo-alt-fill"></i></div>
+      <div class="aq-metric-value">{{ total_regions }}</div>
+      <div class="aq-metric-label">Regions Monitored</div>
+      <div class="aq-metric-sub">
+        <a href="{% url 'regions:list' %}" style="color:var(--accent-blue);">View regions</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Predictions Today -->
+  <div class="col-sm-6 col-xl-3">
+    <div class="aq-metric-card">
+      <div class="aq-metric-icon green"><i class="bi bi-cpu-fill"></i></div>
+      <div class="aq-metric-value">{{ predictions_today }}</div>
+      <div class="aq-metric-label">Predictions Today</div>
+      <div class="aq-metric-sub">
+        <a href="{% url 'predictions:list' %}" style="color:var(--accent-blue);">Run new</a>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── CHARTS ROW ── -->
+<div class="row g-3 mb-4">
+
+  <!-- Trend Chart -->
+  <div class="col-lg-8">
+    <div class="aq-card h-100">
+      <div class="aq-card-header">
+        <h5 class="aq-card-title"><i class="bi bi-graph-up"></i> Risk Probability Trend (30 Days)</h5>
+        <span style="font-size:12px;color:var(--text-muted);">Avg across all regions</span>
+      </div>
+      <div class="aq-chart-wrap" style="height:220px;">
+        <canvas id="trendChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Donut Chart -->
+  <div class="col-lg-4">
+    <div class="aq-card h-100">
+      <div class="aq-card-header">
+        <h5 class="aq-card-title"><i class="bi bi-pie-chart-fill"></i> Risk Distribution</h5>
+      </div>
+      <div class="aq-chart-wrap" style="height:220px;">
+        <canvas id="riskDonut"></canvas>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── TABLE + MAP ROW ── -->
+<div class="row g-3 mb-4">
+
+  <!-- Regional Risk Table -->
+  <div class="col-lg-5">
+    <div class="aq-card h-100">
+      <div class="aq-card-header">
+        <h5 class="aq-card-title"><i class="bi bi-table"></i> Regional Risk Summary</h5>
+        <a href="{% url 'regions:list' %}" style="font-size:12px;color:var(--accent-blue);">View all →</a>
+      </div>
+      {% if region_overview %}
+        <div class="table-responsive">
+          <table class="aq-table">
+            <thead>
+              <tr>
+                <th>Region</th>
+                <th>Risk</th>
+                <th>Reservoir</th>
+                <th>Prob.</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in region_overview|slice:":10" %}
+                <tr class="{% if item.prediction %}row-{{ item.prediction.risk_level|lower }}{% endif %}"
+                    onclick="window.location='{% url 'regions:detail' item.region.pk %}'"
+                    style="cursor:pointer;">
+                  <td>
+                    <div style="font-weight:600;font-size:13px;">{{ item.region.name }}</div>
+                    <div style="font-size:11px;color:var(--text-muted);">{{ item.region.state }}</div>
+                  </td>
+                  <td>
+                    {% if item.prediction %}
+                      <span class="badge-risk badge-{{ item.prediction.risk_level|lower }}">
+                        <span class="dot"></span>{{ item.prediction.risk_level }}
+                      </span>
+                    {% else %}
+                      <span style="color:var(--text-muted);font-size:12px;">N/A</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if item.measurement %}
+                      {{ item.measurement.reservoir_level|floatformat:1 }}%
+                    {% else %}—{% endif %}
+                  </td>
+                  <td>
+                    {% if item.prediction %}
+                      {{ item.prediction.risk_probability|floatformat:0|add:"%" }}
+                    {% else %}—{% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="aq-empty">
+          <i class="bi bi-geo-alt"></i>
+          <p>No region data available. <a href="/admin/regions/region/add/">Add regions</a>.</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Mini Map -->
+  <div class="col-lg-7">
+    <div class="aq-card h-100">
+      <div class="aq-card-header">
+        <h5 class="aq-card-title"><i class="bi bi-map-fill"></i> Water Risk Map</h5>
+        <a href="{% url 'regions:map' %}" style="font-size:12px;color:var(--accent-blue);">Full map →</a>
+      </div>
+      <div id="dashboardMap" class="dashboard-map"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── ALERTS + RECOMMENDATIONS ROW ── -->
+<div class="row g-3">
+
+  <!-- Recent Alerts -->
+  <div class="col-lg-6">
+    <div class="aq-card h-100">
+      <div class="aq-card-header">
+        <h5 class="aq-card-title"><i class="bi bi-bell-fill"></i> Recent Alerts</h5>
+        <a href="{% url 'alerts:list' %}" style="font-size:12px;color:var(--accent-blue);">View all →</a>
+      </div>
+      {% if recent_alerts %}
+        {% for alert in recent_alerts %}
+          <div class="aq-alert-item {% if not alert.is_read %}unread{% else %}read{% endif %}">
+            <div class="aq-alert-icon {{ alert.severity|lower }}">
+              {% if alert.severity == 'CRITICAL' %}<i class="bi bi-exclamation-octagon-fill"></i>
+              {% elif alert.severity == 'HIGH' %}<i class="bi bi-exclamation-triangle-fill"></i>
+              {% elif alert.severity == 'WARNING' %}<i class="bi bi-exclamation-circle-fill"></i>
+              {% else %}<i class="bi bi-info-circle-fill"></i>
+              {% endif %}
+            </div>
+            <div class="aq-alert-body">
+              <div class="aq-alert-title">{{ alert.title }}</div>
+              <div class="aq-alert-msg">{{ alert.message|truncatechars:80 }}</div>
+              <div class="aq-alert-meta">{{ alert.region.name }} &bull; {{ alert.created_at|timesince }} ago</div>
+            </div>
+          </div>
+        {% endfor %}
+      {% else %}
+        <div class="aq-empty"><i class="bi bi-bell-slash"></i><p>No unread alerts.</p></div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Top Recommendations -->
+  <div class="col-lg-6">
+    <div class="aq-card h-100">
+      <div class="aq-card-header">
+        <h5 class="aq-card-title"><i class="bi bi-lightbulb-fill"></i> Top Recommendations</h5>
+        <a href="{% url 'recommendations:list' %}" style="font-size:12px;color:var(--accent-blue);">View all →</a>
+      </div>
+      {% if recent_recommendations %}
+        {% for rec in recent_recommendations %}
+          <div class="aq-alert-item">
+            <div class="aq-alert-icon {% if rec.priority == 'CRITICAL' %}critical{% elif rec.priority == 'HIGH' %}high{% elif rec.priority == 'MEDIUM' %}warning{% else %}info{% endif %}">
+              <i class="bi bi-lightbulb-fill"></i>
+            </div>
+            <div class="aq-alert-body">
+              <div class="d-flex align-items-center gap-2 mb-1">
+                <span class="badge-risk badge-{% if rec.priority == 'CRITICAL' %}critical{% elif rec.priority == 'HIGH' %}high{% elif rec.priority == 'MEDIUM' %}moderate{% else %}low{% endif %}">
+                  {{ rec.priority }}
+                </span>
+                <span style="font-size:11px;color:var(--text-muted);">{{ rec.get_category_display }}</span>
+              </div>
+              <div class="aq-alert-title">{{ rec.title }}</div>
+              <div class="aq-alert-meta">
+                {% if rec.region %}{{ rec.region.name }}{% else %}Global{% endif %}
+                &bull; {{ rec.created_at|timesince }} ago
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+      {% else %}
+        <div class="aq-empty"><i class="bi bi-lightbulb"></i><p>No active recommendations.</p></div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/dashboard.js' %}"></script>
+<script>
+  // Trend chart data from Django context
+  const trendLabels = {{ trend_labels|safe }};
+  const trendData   = {{ trend_data|safe }};
+  const riskDist    = {{ risk_distribution|safe }};
+
+  initDashboardCharts(trendLabels, trendData, riskDist);
+
+  // Mini map data
+  const regionsGeoData = {{ regions_geo_json|safe }};
+  initMiniMap(regionsGeoData);
+</script>
+{% endblock %}

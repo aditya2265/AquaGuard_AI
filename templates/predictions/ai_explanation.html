@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}AI Explanation — {{ prediction.region.name }} — AquaGuard AI{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center gap-3 mb-4">
+  <a href="{% url 'predictions:list' %}?region={{ prediction.region.pk }}" class="btn-aq btn-aq-ghost btn-aq-sm">
+    <i class="bi bi-arrow-left me-2"></i>Back
+  </a>
+  <div>
+    <div class="aq-page-title mb-0">AI Risk Explanation</div>
+    <div style="font-size:13px;color:var(--text-muted);">
+      {{ prediction.region.name }}, {{ prediction.region.state }} &bull;
+      {{ prediction.horizon_days }}-Day Horizon &bull;
+      {{ prediction.prediction_date|date:"M j, Y" }}
+    </div>
+  </div>
+</div>
+
+<!-- Risk Summary -->
+<div class="row g-4 mb-4">
+  <div class="col-md-4">
+    <div class="aq-card text-center"
+         style="border-color:{% if prediction.risk_level == 'CRITICAL' %}var(--color-critical){% elif prediction.risk_level == 'HIGH' %}var(--color-high){% elif prediction.risk_level == 'MODERATE' %}var(--color-moderate){% else %}var(--color-low){% endif %};">
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-muted);margin-bottom:12px;">Risk Score</div>
+      <div style="font-size:56px;font-weight:800;color:var(--text-heading);line-height:1;">
+        {{ prediction.risk_probability|floatformat:0 }}<span style="font-size:24px;">%</span>
+      </div>
+      <span class="badge-risk badge-{{ prediction.risk_level|lower }}" style="font-size:14px;padding:6px 20px;margin-top:12px;display:inline-flex;">
+        <span class="dot"></span>{{ prediction.risk_level }} RISK
+      </span>
+      {% if prediction.expected_shortage_start %}
+        <div style="margin-top:14px;font-size:13px;color:var(--text-muted);">
+          Expected shortage: <strong style="color:var(--color-high);">{{ prediction.expected_shortage_start }}</strong>
+        </div>
+      {% endif %}
+      <div style="margin-top:8px;font-size:12px;color:var(--text-muted);">
+        Predicted reservoir: {{ prediction.predicted_reservoir_level|floatformat:1 }}%
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-8">
+    <div class="aq-card h-100">
+      <div class="aq-card-header">
+        <h5 class="aq-card-title"><i class="bi bi-chat-square-text-fill"></i> AI Explanation</h5>
+      </div>
+      {% if assessment and assessment.explanation_text %}
+        <p style="font-size:15px;color:var(--text-primary);line-height:1.8;margin:0;">
+          {{ assessment.explanation_text }}
+        </p>
+      {% else %}
+        <p style="font-size:14px;color:var(--text-muted);">
+          No detailed explanation available for this prediction.
+          Run a new prediction to generate an AI explanation.
+        </p>
+      {% endif %}
+      <div style="margin-top:20px;padding:12px 14px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:8px;font-size:13px;color:var(--color-moderate);">
+        <i class="bi bi-info-circle me-2"></i>
+        <strong>Important:</strong> This is an AI/ML estimate based on historical patterns.
+        Always verify with official water authority sources before making operational decisions.
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if assessment %}
+<!-- Contributing Factors -->
+<div class="aq-card mb-4">
+  <div class="aq-card-header">
+    <h5 class="aq-card-title"><i class="bi bi-bar-chart-fill"></i> Contributing Risk Factors</h5>
+    <span style="font-size:12px;color:var(--text-muted);">Relative impact on overall risk score</span>
+  </div>
+
+  <div class="row g-4">
+    {% for name, value in assessment.contributing_factors.items %}
+    <div class="col-md-6">
+      <div class="aq-factor-bar">
+        <div class="aq-factor-label">
+          <span>{{ name }}</span>
+          <span class="val">
+            {% if value > 0 %}<span style="color:var(--color-critical);">+{{ value|floatformat:1 }}%</span>
+            {% else %}<span style="color:var(--color-low);">{{ value|floatformat:1 }}%</span>{% endif %}
+          </span>
+        </div>
+        <div class="aq-progress">
+          <div class="aq-progress-bar {% if value > 50 %}critical{% elif value > 30 %}high{% elif value > 15 %}moderate{% else %}low{% endif %}"
+               style="width:{% widthratio value 100 100 %}%;"></div>
+        </div>
+      </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+      <p style="color:var(--text-muted);font-size:14px;">No contributing factor data available.</p>
+    </div>
+    {% endfor %}
+  </div>
+
+  <hr style="border-color:var(--border-color);margin:20px 0;">
+
+  <div class="row g-3">
+    <div class="col-md-4">
+      <div class="d-flex gap-3 align-items-center p-3"
+           style="background:rgba(255,255,255,0.03);border-radius:8px;">
+        <div class="aq-metric-icon cyan"><i class="bi bi-cloud-rain-fill"></i></div>
+        <div>
+          <div style="font-size:18px;font-weight:700;color:var(--text-heading);">{{ assessment.rainfall_factor|floatformat:1 }}</div>
+          <div style="font-size:11px;color:var(--text-muted);">Rainfall Factor</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="d-flex gap-3 align-items-center p-3"
+           style="background:rgba(255,255,255,0.03);border-radius:8px;">
+        <div class="aq-metric-icon blue"><i class="bi bi-droplet-half"></i></div>
+        <div>
+          <div style="font-size:18px;font-weight:700;color:var(--text-heading);">{{ assessment.reservoir_factor|floatformat:1 }}</div>
+          <div style="font-size:11px;color:var(--text-muted);">Reservoir Factor</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="d-flex gap-3 align-items-center p-3"
+           style="background:rgba(255,255,255,0.03);border-radius:8px;">
+        <div class="aq-metric-icon red"><i class="bi bi-graph-up-arrow"></i></div>
+        <div>
+          <div style="font-size:18px;font-weight:700;color:var(--text-heading);">{{ assessment.risk_score|floatformat:1 }}</div>
+          <div style="font-size:11px;color:var(--text-muted);">Composite Risk Score</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Actions -->
+<div class="d-flex gap-3">
+  <a href="{% url 'predictions:list' %}?region={{ prediction.region.pk }}" class="btn-aq btn-aq-outline">
+    <i class="bi bi-cpu me-2"></i>All Predictions
+  </a>
+  <a href="{% url 'regions:detail' prediction.region.pk %}" class="btn-aq btn-aq-ghost">
+    <i class="bi bi-geo-alt me-2"></i>Region Details
+  </a>
+</div>
+
+{% endblock %}

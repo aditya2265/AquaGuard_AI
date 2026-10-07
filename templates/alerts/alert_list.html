@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Alerts — AquaGuard AI{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+  <div>
+    <div class="aq-page-title mb-0">Alerts &amp; Notifications</div>
+    <div class="aq-page-subtitle mb-0">{{ alerts|length }} alert(s) — {{ unread_count }} unread</div>
+  </div>
+  <button onclick="markAllAlertsRead()" class="btn-aq btn-aq-outline btn-aq-sm">
+    <i class="bi bi-check2-all me-2"></i>Mark All Read
+  </button>
+</div>
+
+<!-- Severity summary badges -->
+<div class="d-flex gap-2 flex-wrap mb-4">
+  <a href="{% url 'alerts:list' %}" class="btn-aq {% if not request.GET.severity %}btn-aq-primary{% else %}btn-aq-ghost{% endif %} btn-aq-sm">
+    All ({{ total_count }})
+  </a>
+  <a href="?severity=CRITICAL" class="btn-aq {% if request.GET.severity == 'CRITICAL' %}btn-aq-danger{% else %}btn-aq-ghost{% endif %} btn-aq-sm">
+    <i class="bi bi-exclamation-octagon me-1"></i>Critical ({{ critical_count }})
+  </a>
+  <a href="?severity=HIGH" class="btn-aq btn-aq-ghost btn-aq-sm" style="{% if request.GET.severity == 'HIGH' %}border-color:var(--color-high);color:var(--color-high);{% endif %}">
+    High ({{ high_count }})
+  </a>
+  <a href="?severity=WARNING" class="btn-aq btn-aq-ghost btn-aq-sm">Warning ({{ warning_count }})</a>
+  <a href="?severity=INFO"    class="btn-aq btn-aq-ghost btn-aq-sm">Info ({{ info_count }})</a>
+</div>
+
+<!-- Filter bar -->
+<div class="aq-filter-bar mb-3">
+  <span class="label">Filter:</span>
+  <form method="get" class="d-flex gap-2 flex-wrap align-items-center" style="margin:0;">
+    {% if request.GET.severity %}
+      <input type="hidden" name="severity" value="{{ request.GET.severity }}">
+    {% endif %}
+    <select name="region" class="aq-form-control" style="max-width:200px;">
+      <option value="">All Regions</option>
+      {% for region in all_regions %}
+        <option value="{{ region.pk }}" {% if request.GET.region == region.pk|stringformat:'i' %}selected{% endif %}>
+          {{ region.name }}
+        </option>
+      {% endfor %}
+    </select>
+    <select name="read" class="aq-form-control" style="max-width:140px;">
+      <option value="">All</option>
+      <option value="unread" {% if request.GET.read == 'unread' %}selected{% endif %}>Unread</option>
+      <option value="read"   {% if request.GET.read == 'read' %}selected{% endif %}>Read</option>
+    </select>
+    <button type="submit" class="btn-aq btn-aq-primary btn-aq-sm">Apply</button>
+  </form>
+</div>
+
+<!-- Alert List -->
+<div class="aq-card">
+  {% if alerts %}
+    {% for alert in alerts %}
+      <div class="aq-alert-item {% if not alert.is_read %}unread{% else %}read{% endif %}"
+           data-alert-id="{{ alert.pk }}">
+        <div class="aq-alert-icon {{ alert.severity|lower }}">
+          {% if alert.severity == 'CRITICAL' %}
+            <i class="bi bi-exclamation-octagon-fill"></i>
+          {% elif alert.severity == 'HIGH' %}
+            <i class="bi bi-exclamation-triangle-fill"></i>
+          {% elif alert.severity == 'WARNING' %}
+            <i class="bi bi-exclamation-circle-fill"></i>
+          {% else %}
+            <i class="bi bi-info-circle-fill"></i>
+          {% endif %}
+        </div>
+        <div class="aq-alert-body">
+          <div class="d-flex align-items-center gap-2 mb-1">
+            <span class="badge-risk badge-{% if alert.severity == 'CRITICAL' %}critical{% elif alert.severity == 'HIGH' %}high{% elif alert.severity == 'WARNING' %}warning{% else %}info{% endif %}">
+              {{ alert.severity }}
+            </span>
+            <span style="font-size:11px;color:var(--text-muted);">{{ alert.get_alert_type_display }}</span>
+            {% if not alert.is_read %}
+              <span style="width:6px;height:6px;border-radius:50%;background:var(--accent-blue);display:inline-block;" title="Unread"></span>
+            {% endif %}
+          </div>
+          <div class="aq-alert-title">{{ alert.title }}</div>
+          <div class="aq-alert-msg">{{ alert.message }}</div>
+          <div class="aq-alert-meta">
+            <i class="bi bi-geo-alt me-1"></i>{{ alert.region.name }}
+            &bull; {{ alert.created_at|timesince }} ago
+            &bull; {{ alert.created_at|date:"M j, Y H:i" }}
+          </div>
+        </div>
+        {% if not alert.is_read %}
+          <div class="ms-2">
+            <button onclick="markAlertRead({{ alert.pk }})"
+                    class="btn-aq btn-aq-ghost btn-aq-sm btn-mark-read"
+                    title="Mark as read">
+              <i class="bi bi-check2"></i>
+            </button>
+          </div>
+        {% endif %}
+      </div>
+    {% endfor %}
+  {% else %}
+    <div class="aq-empty">
+      <i class="bi bi-bell-slash"></i>
+      <p>No alerts match the current filters.</p>
+    </div>
+  {% endif %}
+</div>
+
+{% endblock %}
