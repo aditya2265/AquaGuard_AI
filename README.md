@@ -10,8 +10,7 @@
 ---
 
 ## Live Application
-- **Live Demo**: `https://<your-app-name>.onrender.com` *(Replace with your Render deployment URL after setup)*
-
+- **Live Demo**: https://aquaguard-ai-t7a6.onrender.com/dashboard/
 ---
 
 ## Overview
