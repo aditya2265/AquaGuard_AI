@@ -1,35 +1,5 @@
 [
 {
-  "model": "accounts.userprofile",
-  "pk": 1,
-  "fields": {
-    "user": [
-      "admin"
-    ],
-    "role": "viewer",
-    "organization": "",
-    "phone": "",
-    "bio": "",
-    "created_at": "2026-10-07T17:50:52.119Z",
-    "updated_at": "2026-10-07T17:50:52.125Z"
-  }
-},
-{
-  "model": "accounts.userprofile",
-  "pk": 2,
-  "fields": {
-    "user": [
-      "aditya"
-    ],
-    "role": "viewer",
-    "organization": "",
-    "phone": "",
-    "bio": "",
-    "created_at": "2026-10-07T19:39:23.343Z",
-    "updated_at": "2026-10-07T19:39:23.343Z"
-  }
-},
-{
   "model": "regions.region",
   "pk": 1,
   "fields": {
