@@ -174,3 +174,5 @@ REST_FRAMEWORK = {
 IBM_API_KEY = env('IBM_API_KEY', default='')
 IBM_PROJECT_ID = env('IBM_PROJECT_ID', default='')
 IBM_URL = env('IBM_URL', default='')
+
+SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
